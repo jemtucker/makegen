@@ -26,7 +26,7 @@ int mkdir_relative(const char* root, const char* dir) {
      strcat(buf, dir);
     
      // Make directory with read/write/execute permissions for owner and group.
-     result = mkdir(buf, S_IRWXU | S_IRWXG);
+     result = mkdir(buf, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
      if (result != 0) {
         return errno;
      } else {
