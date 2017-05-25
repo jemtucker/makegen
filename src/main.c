@@ -1,14 +1,9 @@
-#include <stdio.h>
+#include "log.h"
+
 #include <errno.h>
 #include <string.h>
 
 #include <sys/stat.h>
-
-#define PROGNAME "makegen"
-
-#define STR2(s) #s
-#define STR(s) STR2(s)
-#define ERR(msg, __VA_ARGS__) printf(PROGNAME ":" __FILE__ ":" STR(__LINE__) ": " msg,  __VA_ARGS__)
 
 /**
  * Create a directory 'dir' under parent 'root' with group and owner read/

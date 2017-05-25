@@ -1,7 +1,7 @@
 TARGET = makegen
 LIBS = 
 CC = clang
-CFLAGS = -g -Wall
+CFLAGS = -g -Wall -Iinc/
 
 .PHONY: default all clean
 
