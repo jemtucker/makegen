@@ -2,8 +2,35 @@
 
 #include <errno.h>
 #include <string.h>
+#include <fcntl.h>
+#include <unistd.h>
 
 #include <sys/stat.h>
+
+static const char CONTENT_MAKEFILE[] =                      \
+"TARGET = makegen\n"                                        \
+"LIBS =\n"                                                  \
+"CC = clang\n"                                              \
+"CFLAGS = -g -Wall -Iinc/\n\n"                              \
+".PHONY: default all clean\n\n"                             \
+                                                            \
+"default: $(TARGET)\n"                                      \
+"all: default\n\n"                                          \
+                                                            \
+"OBJECTS = $(patsubst %.c, %.o, $(wildcard src/*.c))\n"     \
+"HEADERS = $(wildcard src/*.h)\n\n"                         \
+                                                            \
+"%.o: %.c $(HEADERS)\n"                                     \
+"   $(CC) $(CFLAGS) -c $< -o $@\n\n"                        \
+                                                            \
+".PRECIOUS: $(TARGET) $(OBJECTS)\n\n"                       \
+                                                            \
+"$(TARGET): $(OBJECTS)\n"                                   \
+"    $(CC) $(OBJECTS) -Wall $(LIBS) -o $@\n\n"              \
+                                                            \
+"clean:\n"                                                  \
+"    -rm -f *.o\n"                                          \
+"    -rm -f $(TARGET)\n"                                    ;
 
 /**
  * Create a directory 'dir' under parent 'root' with group and owner read/
@@ -12,7 +39,7 @@
  * @param dir: The new directory name
  * @return: 0 on success else a non-zero errno error code.
  */
-int mkdir_relative(const char* root, const char* dir) {
+int mkdir_relative(const char *root, const char *dir) {
      char buf[255];
      int result;
      
@@ -36,20 +63,72 @@ int mkdir_relative(const char* root, const char* dir) {
  * @param root: The root dir under which all project folders are created.
  * @return: 0 on success else -1
  */
-int make_directories(const char* root) {
+int make_directories(const char *root) {
     int result;
 
     result = mkdir_relative(root, "src");
     if (result != 0) {
-        ERR("Error creating 'src' dir: %d\n", result);
+        ERR("Error creating 'src' dir: %s\n", strerror(result));
         return -1;
     }
     
     result = mkdir_relative(root, "inc");
     if (result != 0) {
-        ERR("Error creating 'inc' dir: %d\n", result);
+        ERR("Error creating 'inc' dir: %s\n", strerror(result));
         return -1;
     } 
+
+    return 0;
+}
+
+/**
+ * Write a default Makefile to <root>/Makefile
+ * @param root: Directory in which to write the file
+ * @return: 0 on success else error
+ */
+int make_makefile(const char *root) {
+    int fd;
+    ssize_t len;
+    char buf[255];
+    
+    strcpy(buf, root);
+    strcat(buf, "Makefile");
+    
+    fd = open(buf, O_WRONLY | O_CREAT | O_TRUNC);
+    if (fd < 0) {
+        return errno;
+    }
+    
+    len = write(fd, CONTENT_MAKEFILE, sizeof(CONTENT_MAKEFILE));
+    if (len != sizeof(CONTENT_MAKEFILE)) {
+        return errno;
+    }
+
+    return 0; 
+}
+
+/**
+ * Write a 'Hello World' program to <root>/src/main.c
+ * @param root: Directory in which to write the file
+ * @return: 0 on success else errno error
+ */
+int make_main(const char *root){
+    return 0;
+}
+
+int make_files(const char* root) {
+    int result;
+    result = make_makefile(root);
+    if (result != 0) {
+        ERR("Error creating Makefile: %s\n", strerror(result));
+        return result; 
+    }
+
+    result = make_main(root);
+    if (result != 0) {
+        ERR("Error creating src/main.c: %s\n", strerror(result));
+        return result;
+    }
 
     return 0;
 }
@@ -63,6 +142,11 @@ int main(int argc, char* argv[]) {
         return result;
     }    
     
+    result = make_files("./test/");
+    if (result != 0) {
+        return result;
+    } 
+
     return 0;
 }
 
