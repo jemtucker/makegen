@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <errno.h>
 
 // Name of the application
 #define PROGNAME "makegen"
@@ -8,7 +9,7 @@
 #define STR(s) STR2(s)
 
 // Error logging function
-#define ERR(msg, __VA_ARGS__) printf(PROGNAME ":" __FILE__ ":" STR(__LINE__) ": " \
-                msg,  __VA_ARGS__)
+#define ERR(msg, __VA_ARGS__) (printf(PROGNAME ":" __FILE__ ":" STR(__LINE__) ": " \
+                msg,  __VA_ARGS__))
 
-
+#define ERR_ERRNO(msg) ERR(msg ": %s\n", strerror(errno))

@@ -1,6 +1,5 @@
 #include "log.h"
 
-#include <errno.h>
 #include <string.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -21,16 +20,16 @@ static const char CONTENT_MAKEFILE[] =                      \
 "HEADERS = $(wildcard src/*.h)\n\n"                         \
                                                             \
 "%.o: %.c $(HEADERS)\n"                                     \
-"   $(CC) $(CFLAGS) -c $< -o $@\n\n"                        \
+"\t$(CC) $(CFLAGS) -c $< -o $@\n\n"                         \
                                                             \
 ".PRECIOUS: $(TARGET) $(OBJECTS)\n\n"                       \
                                                             \
 "$(TARGET): $(OBJECTS)\n"                                   \
-"    $(CC) $(OBJECTS) -Wall $(LIBS) -o $@\n\n"              \
+"\t$(CC) $(OBJECTS) -Wall $(LIBS) -o $@\n\n"                \
                                                             \
 "clean:\n"                                                  \
-"    -rm -f *.o\n"                                          \
-"    -rm -f $(TARGET)\n"                                    ;
+"\t-rm -f src/*.o\n"                                        \
+"\t-rm -f $(TARGET)\n"                                      ;
 
 /**
  * Create a directory 'dir' under parent 'root' with group and owner read/
@@ -67,14 +66,14 @@ int make_directories(const char *root) {
     int result;
 
     result = mkdir_relative(root, "src");
-    if (result != 0) {
-        ERR("Error creating 'src' dir: %s\n", strerror(result));
+    if (result != 0 && result != EEXIST) {
+        ERR_ERRNO("Error creating 'src' dir");
         return -1;
     }
     
     result = mkdir_relative(root, "inc");
-    if (result != 0) {
-        ERR("Error creating 'inc' dir: %s\n", strerror(result));
+    if (result != 0 && result != EEXIST) {
+        ERR_ERRNO("Error creating 'inc' dir");
         return -1;
     } 
 
@@ -87,7 +86,7 @@ int make_directories(const char *root) {
  * @return: 0 on success else error
  */
 int make_makefile(const char *root) {
-    int fd;
+    int fd, result;
     ssize_t len;
     char buf[255];
     
@@ -98,12 +97,23 @@ int make_makefile(const char *root) {
     if (fd < 0) {
         return errno;
     }
-    
+   
+    // Write the contents to the new file 
     len = write(fd, CONTENT_MAKEFILE, sizeof(CONTENT_MAKEFILE));
     if (len != sizeof(CONTENT_MAKEFILE)) {
+        close(fd);
+        return errno;
+    }
+    
+    // Change permissions on the file to read/write owner and
+    // read only for others
+    result = fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (result != 0) {
+        close(fd);
         return errno;
     }
 
+    close(fd);
     return 0; 
 }
 
@@ -120,13 +130,13 @@ int make_files(const char* root) {
     int result;
     result = make_makefile(root);
     if (result != 0) {
-        ERR("Error creating Makefile: %s\n", strerror(result));
+        ERR_ERRNO("Error creating Makefile");
         return result; 
     }
 
     result = make_main(root);
     if (result != 0) {
-        ERR("Error creating src/main.c: %s\n", strerror(result));
+        ERR_ERRNO("Error creating src/main.c");
         return result;
     }
 
