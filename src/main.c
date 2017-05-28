@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 
 static const char CONTENT_MAKEFILE[] =                      \
-"TARGET = makegen\n"                                        \
+"TARGET = hello\n"                                          \
 "LIBS =\n"                                                  \
 "CC = clang\n"                                              \
 "CFLAGS = -g -Wall -Iinc/\n\n"                              \
@@ -31,6 +31,14 @@ static const char CONTENT_MAKEFILE[] =                      \
 "\t-rm -f src/*.o\n"                                        \
 "\t-rm -f $(TARGET)\n"                                      ;
 
+static const char CONTENT_MAIN[] =                          \
+"#include <stdio.h>\n\n"                                    \
+                                                            \
+"int main(int argc, const char *argv[]) {\n"                \
+"    printf(\"Hello World\\n\");\n"                         \
+"    return 0\n;"                                           \
+"}\n"                                                       ;
+
 /**
  * Create a directory 'dir' under parent 'root' with group and owner read/
  * write/execute permissions.
@@ -41,11 +49,11 @@ static const char CONTENT_MAKEFILE[] =                      \
 int mkdir_relative(const char *root, const char *dir) {
      char buf[255];
      int result;
-     
+
      // Cat root/dir
      strcpy(buf, root);
      strcat(buf, dir);
-    
+
      // Make directory with read/write/execute permissions for owner and group.
      result = mkdir(buf, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
      if (result != 0) {
@@ -70,41 +78,39 @@ int make_directories(const char *root) {
         ERR_ERRNO("Error creating 'src' dir");
         return -1;
     }
-    
+
     result = mkdir_relative(root, "inc");
     if (result != 0 && result != EEXIST) {
         ERR_ERRNO("Error creating 'inc' dir");
         return -1;
-    } 
+    }
 
     return 0;
 }
 
 /**
- * Write a default Makefile to <root>/Makefile
- * @param root: Directory in which to write the file
+ * Write 'contents' to file at 'path', overwriting any exising file.
+ * @param path: File to create
+ * @param contents: Buffer containing data to write
+ * @param contentsLen: Length of contents buffer
  * @return: 0 on success else error
  */
-int make_makefile(const char *root) {
+int make_file(const char *path, const char *contents, size_t contentsLen) {
     int fd, result;
     ssize_t len;
-    char buf[255];
-    
-    strcpy(buf, root);
-    strcat(buf, "Makefile");
-    
-    fd = open(buf, O_WRONLY | O_CREAT | O_TRUNC);
+
+    fd = open(path, O_WRONLY | O_CREAT | O_TRUNC);
     if (fd < 0) {
         return errno;
     }
-   
-    // Write the contents to the new file 
-    len = write(fd, CONTENT_MAKEFILE, sizeof(CONTENT_MAKEFILE));
-    if (len != sizeof(CONTENT_MAKEFILE)) {
+
+    // Write the contents to the new file
+    len = write(fd, contents, contentsLen);
+    if (len != contentsLen) {
         close(fd);
         return errno;
     }
-    
+
     // Change permissions on the file to read/write owner and
     // read only for others
     result = fchmod(fd, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
@@ -114,16 +120,35 @@ int make_makefile(const char *root) {
     }
 
     close(fd);
-    return 0; 
+    return 0;
+}
+
+/**
+ * Write a default Makefile to <root>/Makefile
+ * @param root: Directory in which to write the file, including trailing /
+ * @return: 0 on success else error
+ */
+int make_makefile(const char *root) {
+    char buf[255];
+    strcpy(buf, root);
+    strcat(buf, "Makefile");
+
+    // Write the data, without the null terminator
+    return make_file(buf, CONTENT_MAKEFILE, sizeof(CONTENT_MAKEFILE) - 1);
 }
 
 /**
  * Write a 'Hello World' program to <root>/src/main.c
- * @param root: Directory in which to write the file
+ * @param root: Directory in which to write the file, including trailing /
  * @return: 0 on success else errno error
  */
-int make_main(const char *root){
-    return 0;
+int make_main(const char *root) {
+    char buf[255];
+    strcpy(buf, root);
+    strcat(buf, "src/main.c");
+
+    // Write the data, without the null terminator
+    return make_file(buf, CONTENT_MAIN, sizeof(CONTENT_MAIN) - 1);
 }
 
 int make_files(const char* root) {
@@ -131,7 +156,7 @@ int make_files(const char* root) {
     result = make_makefile(root);
     if (result != 0) {
         ERR_ERRNO("Error creating Makefile");
-        return result; 
+        return result;
     }
 
     result = make_main(root);
@@ -145,38 +170,17 @@ int make_files(const char* root) {
 
 int main(int argc, char* argv[]) {
     int result;
-    
+
     // Create all required directories
     result = make_directories("./test/");
     if (result != 0) {
         return result;
-    }    
-    
+    }
+
     result = make_files("./test/");
     if (result != 0) {
         return result;
-    } 
+    }
 
     return 0;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
